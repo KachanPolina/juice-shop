@@ -145,6 +145,28 @@ const startupGauge = new Prometheus.Gauge({
   labelNames: ['task']
 })
 
+
+// Виправлення вразливості з відгуками
+const fixForgedFeedback = () => (req: Request, res: Response, next: NextFunction): void => {
+  if (req.body) {
+    const user: any = security.authenticatedUsers.from(req)
+    const realUserId = user?.data ? user.data.id : null
+
+    const cleanBody: any = {
+      comment: req.body.comment,
+      rating: req.body.rating
+    }
+
+    if (realUserId) {
+      cleanBody.UserId = realUserId
+    }
+    req.body = cleanBody
+  }
+  next()
+}
+
+
+
 // Wraps the function and measures its (async) execution time
 const collectDurationPromise = (name: string, func: (...args: any) => Promise<any>) => {
   return async (...args: any) => {
@@ -418,6 +440,7 @@ function configureApp (app: ReturnType<typeof express>, seq: typeof sequelize) {
   app.use('/rest/basket/:id', security.isAuthorized())
   app.use('/rest/basket/:id/order', security.isAuthorized())
   /* Challenge evaluation before finale takes over */ // vuln-code-snippet hide-start
+  app.post('/api/Feedbacks', fixForgedFeedback())
   app.post('/api/Feedbacks', verify.forgedFeedbackChallenge())
   /* Captcha verification before finale takes over */
   app.post('/api/Feedbacks', utils.asyncHandler(verifyCaptcha()))
